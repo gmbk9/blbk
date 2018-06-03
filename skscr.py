@@ -20,6 +20,8 @@ except:
 
 #元のシェープキー選択状態保存
 askindex = obj.active_shape_key_index
+sosk = obj.show_only_shape_key
+obj.show_only_shape_key = True
 
 
 #複製を作成する
@@ -71,6 +73,7 @@ for kidx in r:
     
 #元々アクティブだったシェープキーを復元
 obj.active_shape_key_index = askindex
+obj.show_only_shape_key = sosk
 
 #掃除
 m = nobj2.data
