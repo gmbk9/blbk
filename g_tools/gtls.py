@@ -1,9 +1,63 @@
 # -*- coding: utf-8 -*-
 import bpy
 from g_tools.nbf import *
+from g_tools.WORLD_CONSTANTS import *
 
-############bpy object manipulation
+#########################################################decorators
+def defac(f):
+    """
+    アクティブオブジェクトをデフォルトのオブジェクトにしてくれる関数
+    Set a function to use the active object by default
+    """
+    def default_activand(*args,obj = None,**kwargs):
+        if obj == None:
+            obj = bpy.context.scene.objects.active
+        return f(*args,obj = obj,**kwargs,)
+    return default_activand
 
+def defac2(f):
+    """
+    アクティブオブジェクトと（アクティブ以外の）選択されてるオブジェクト一個をデフォルトのオブジェクトにしてくれる関数
+    Set a function to use the active object by default
+    """
+    def default_activand(*args,obj = None,sobj = None,**kwargs):
+        if obj == None:
+            obj = bpy.context.scene.objects.active
+        if sobj == None:        
+            sobj = get_sel_obj_any()
+        return f(*args,obj = obj,sobj = sobj,**kwargs,)
+    return default_activand
+
+#########################################################layers
+def get_visible_layers(obj = None,scn = None):
+    vislayers = tuple(filter(lambda x: obj.layers[x]*scn.layers[x],range((20))))
+    return (vislayers)
+    
+#########################################################bpy object manipulation
+
+def set_ac(obj):
+    ac = bpy.context.scene.objects.active
+    bpy.context.scene.objects.active = obj
+    return ac
+    
+def set_mode(new_mode):
+    mode = bpy.context.scene.objects.active.mode
+    bpy.ops.object.mode_set(mode=new_mode)
+    return mode
+    
+def set_context(newctx):
+    """
+    参照までに、可能なcontextの種類:
+    'VIEW_3D', 'TIMELINE', 'GRAPH_EDITOR', 'DOPESHEET_EDITOR', 'NLA_EDITOR', 'IMAGE_EDITOR', 'CLIP_EDITOR', 'SEQUENCE_EDITOR', 'NODE_EDITOR', 'TEXT_EDITOR', 'LOGIC_EDITOR', 'PROPERTIES', 'OUTLINER', 'USER'（？）
+    注意:最後だけ何故か不正の様。
+    """
+    ctx = bpy.context
+    scn = ctx.scene
+    area = ctx.area
+    old_type = area.type
+    area.type = newctx
+    return old_type
+    
 def get_obj_type_args(obj_name,obj_type,sub_type):
     """これは酷い。見なかったことにしてください。"""
     default_lst = ('meshes','new',)
@@ -57,6 +111,19 @@ def make_obj(name = "new_obj",type = "MESH",subtype = "",do_link = True):
         objs.link(nobj)
     return nobj
 	
+def dupli_obj(link = True, obj = None,link_data = False,obj_name = "duplicated"):
+    newobj = obj.copy()
+    if link_data:
+        newobj.data = obj.data
+    else:
+        newobj.data = obj.data.copy()
+    if link == True:
+        bpy.context.scene.objects.link(newobj)
+    elif link == False:
+        pass
+    newobj.name = obj.name + "_" + obj_name
+    return newobj
+
 def make_objs(coords,scale = 1,name = "",count = -1,type = "EMPTY"):
     """Creates things at coordinates.
     Pass a count > 0 with the coords to only create some of the coordinates.
@@ -80,3 +147,9 @@ def from_coords(coords,name = "new_obj",obj_type = "EMPTY",prop_name = "location
     any(map(lambda r: dict2attr(kwargs,r),res))
     return res
     
+
+defac_funcs = (
+dupli_obj,get_visible_layers,
+)
+for f in defac_funcs:
+    globals()[f.__name__] = defac(f)
