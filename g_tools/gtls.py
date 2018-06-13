@@ -28,6 +28,17 @@ def defac2(f):
         return f(*args,obj = obj,sobj = sobj,**kwargs,)
     return default_activand
 
+def moderate(mode):
+    mode = mode.upper()
+    def moderator(f):
+        def moderated(*args,**kwargs):
+            original_mode = set_mode(mode)
+            res = f(*args,**kwargs)
+            set_mode(original_mode)
+            return res
+        return moderated
+    return moderator
+    
 #########################################################layers
 def get_visible_layers(obj = None,scn = None):
     vislayers = tuple(filter(lambda x: obj.layers[x]*scn.layers[x],range((20))))
