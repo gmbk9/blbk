@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 import bpy
 from g_tools.nbf import *
-from . import gtls
+from .. import gtls
 from g_tools.gtls import defac,set_mode,set_ac
 from mathutils import Vector,Euler,Quaternion,Matrix
 

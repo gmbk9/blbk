@@ -1,6 +1,6 @@
 #importdefs
 import bpy
-from g_tools import curve_fs
+from g_tools.bpy_itfc_funcs import curve_fs
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty 
 from bpy.types import Operator

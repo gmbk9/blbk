@@ -4,7 +4,7 @@ from g_tools.nbf import *
 from . import armature_fs
 from . import bone_fs
 from . import mod_fs
-from . import gtls
+from .. import gtls
 from g_tools.gtls import defac
 
 @defac

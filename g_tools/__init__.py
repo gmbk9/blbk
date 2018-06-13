@@ -15,5 +15,5 @@ bl_info= {
     
 import bpy
 
-from g_tools.addf.testerate import *
-from g_tools.addf.curve_ui import *
+from g_tools.add_fs.testerate import *
+from g_tools.add_fs.curve_ui import *

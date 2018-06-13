@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 import bpy
 from g_tools.nbf import *
-from . import gtls
+from .. import gtls
 
 def add_font(textbdy = None,name = "Text"):
     textdata = bpy.data.curves.new(name = name,type = "FONT")

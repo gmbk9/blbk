@@ -1,6 +1,6 @@
 #importdefs
 import bpy
-from g_tools.font_fs import make_test_font
+from g_tools.bpy_itfc_funcs.font_fs import make_test_font
 from bpy_extras.io_utils import ImportHelper
 from bpy.props import StringProperty, BoolProperty, EnumProperty, CollectionProperty 
 from bpy.types import Operator

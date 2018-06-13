@@ -1,7 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 import bpy
 from g_tools.nbf import *
-from . import gtls
+from .. import gtls
 
 def get_bmesh(obj = None):
     mesh = bpy.data.objects[obj.name].data
