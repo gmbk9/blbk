@@ -15,15 +15,15 @@ g_tools
 
 使用方法
 ---------
-ここからg_toolsフォルダーをdlして、ブレンダーのaddonsフォルダーに入れる。
-例えば
-C:\Program Files\Blender Foundation\Blender 2.79\2.79\scripts\addons
-にぶち込むだけでいいはず
+ここからg_toolsフォルダーをdlして、ブレンダーのaddonsフォルダーに入れる。<br>
+例えば<br>
+C:\Program Files\Blender Foundation\Blender 2.79\2.79\scripts\addons <br>
+にぶち込むだけでいいはず<br>
 後は祈り
 
 各種機能詳細
 -------------------------------
-料理は作ってくれませす
+料理は作ってくれませす<br>
 彼女は作ってくれません
 
 その他
