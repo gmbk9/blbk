@@ -239,11 +239,17 @@ def getidx(i,idx):
     
 def none_test(x):
     """
-    A test for Noneality.
+    xはNoneであるかを試す
+    Test for None
     """
-    if x == None:
-        return 1
-    return 0
+    return x == None
+    
+def inone_test(x):
+    """
+    xはNoneであるかを試して、結果の真偽を反転する
+    Test for None, inverting truth.
+    """
+    return not (x == None)
     
 def getattr2(i,prop):
     """
@@ -317,7 +323,16 @@ def odd_length(res):
 def expand(f,v,*args,**kwargs):
     return map(id_func,f(v,*args,**kwargs))
     
-#########################################################list/tuple related
+#########################################################hash related
+    
+def bidict(d):
+    keys = tuple(d.keys())
+    for i in keys:
+        d[d[i]] = i 
+    return d
+    
+    
+#########################################################iterable related
 def lst_shift(lst,count = 1):
     """
     単にcount回リストの最初のアイテムを最後の位置に入れ替えるだけ
@@ -337,10 +352,103 @@ def lst_shift_ex(lst,count = 1):
     lst += lst_new
     return lst
     
+def continuate(lst):
+    """
+    i1からのリストか、
+    長さ=1の場合空のチュープルを戻す
+    長さは最低2でなければエラーが発生する為必要…と思われる
+    return either lst from i1 or nil
+    necessary? because [1::] on list causes error
+    """
+    if len(lst) == 1:
+        return ()
+    else:
+        return lst[1::]
+        
+def ungroup(lst):
+    """
+    lstの中身のまた中身にの数でlstを分ける
+    例：
+        ungroup( ( (1,2),(3,4),(5,6) ) ) = ((1,3,5),(2,4,6))
+    args:
+        lst:
+            中身に中身があるやつ
+            とりあえず中身の中身は全部同じ長さでなきゃならん
+    """
+    l = len(lst)
+    l2 = len(lst[0])
+    r = range(l)
+    r2 = range(l2)
+    return tmap(lambda x: tmap(lambda y: lst[y][x],r),r2)
+    
+def by_x(lst,step):
+    """
+    lstの中身をstep個チュープルに放り込む
+    例：
+        by_x((1,2,3,4,5,6),2) = ((1,2),(3,4),(5,6))
+    """
+    return (lst[n:step+n] for n in range(0,int(len(lst)),step))
+    
+def reorder(new_order,lst):
+    """
+    new_orderの中身をインデックスと捉えて、lstの中身をnew_orderの順に再構築する
+    """
+    return tmap(lambda x: lst[x],type(new_order)(new_order))
+    
+def lstwrap(lst,offset_start,offset_end,match_type = True,rev = False):
+    if rev:
+        lst = lst[::1]
+    res = tuple((*lst[offset_start:offset_end],*lst[offset_end::],*lst[0:offset_start]))
+    if match_type:
+        res = type_match(lst,res)
+    return res
+    
 #########################################################string related
     
     
+#########################################################mathutils related
+def dotmu(x,y):
+    return x.dot(y)    
+    
+def crossmu(x,y):
+    return x.cross(y)
+    
+def normalizemu(x):
+    return x.normalized()
+    
 #########################################################misc
+
+def passmap(*args,**kwargs):
+    for x in map(*args,**kwargs): pass
+
+def tmap(f,c):
+    return tuple(map(f,c))
+    
+def tfil(f,c):
+    return tuple(filter(f,c))
+    
+def argize(*args):
+    return args
+    
+def kwargize(**kwargs):
+    """
+    関数呼び出し時のキーワードシンタックスでdictを生成する
+    例：
+        kwargize(a = 2,b = 3) = {"a":2,"b":3}
+    """
+    return kwargs
+kwargdict = kwargize
+
+def setattrate(___itarget1,dbg = False,**kwargs):
+    if dbg:
+        print(___itarget1)
+        for kw in kwargs:
+            print("Key:",kw)
+            print("Value:",kwargs[kw])
+    if ___itarget1 == None:
+        return kwargs
+    anymap(lambda kw: setattr(___itarget1,kw,kwargs[kw]),kwargs)
+    return kwargs
 
 def get_other(pair,current_item,*args,**kwargs):
     return tuple(i for i in pair if i != current_item)[0]
@@ -494,9 +602,6 @@ def prop_switch(o,prop,new_val = True):
         c+=1
     
 
-def reorder(new_order,c):
-    return tmap(lambda x: c[x],type(new_order)(new_order))
-
 #vector map return retrieve example
 #q = map(lambda x: (lambda v: ((v).rotate(Euler((30,90,20))),v))(Vector(x))[1],cos)
 def sreduce(f,c,*init_args,init_func = None,**init_kwargs):
@@ -513,14 +618,6 @@ def sreduce_wrap(start_indices,strings,offset_end = 1,offset_start = 0):
     
 def reduce_wrap(f,lst,offset_end = 1,offset_start = 0):
     return reduce(f,lstwrap(lst,offset_start,offset_end))
-    
-def lstwrap(lst,offset_start,offset_end,match_type = True,rev = False):
-    if rev:
-        lst = lst[::1]
-    res = tuple((*lst[offset_start:offset_end],*lst[offset_end::],*lst[0:offset_start]))
-    if match_type:
-        res = type_match(lst,res)
-    return res
     
 def format_squeeze(start_indices,strings):
     space = reduce(lambda x,y: (*x,start_indices[x+1]-x[-1]) ,((start_indices[0]),*start_indices[1::]))

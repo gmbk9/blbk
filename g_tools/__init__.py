@@ -15,5 +15,11 @@ bl_info= {
     
 import bpy
 
-from g_tools.add_fs.testerate import *
-from g_tools.add_fs.curve_ui import *
+import g_tools.add_fs.curve_ui as curve_ui
+import g_tools.add_fs.bone_ui as bone_ui
+
+curve_ui.register()
+bone_ui.register()
+
+def register():
+    pass
