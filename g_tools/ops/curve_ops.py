@@ -18,8 +18,14 @@ class curve_to_armature_op(bpy.types.Operator):
     bl_category ="Tools"
     bl_options = {'UNDO','REGISTER'}
     
+    use_apply_on_spline = bpy.props.BoolProperty(default = True)
+    make_new_arm = bpy.props.BoolProperty(default = True)
+    base_name = bpy.props.StringProperty(default = "Bone")
+    align_bones = bpy.props.BoolProperty(default = True)
+    do_bone_parent = bpy.props.BoolProperty(default = True)
+    
     def execute(self, context):
-        curve_fs.curve_to_armature()
+        curve_fs.curve_to_armature(make_new_arm = self.make_new_arm,base_name = self.base_name,use_apply_on_spline = self.use_apply_on_spline,align_bones = self.align_bones,do_bone_parent = self.do_bone_parent)
         return {'FINISHED'}
         
         

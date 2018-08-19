@@ -4,6 +4,25 @@ from g_tools.nbf import *
 from g_tools.WORLD_CONSTANTS import *
 
 #########################################################decorators
+def get_active_obj():
+    return bpy.context.scene.objects.active
+    
+def get_sel_objs(exclude_active = False):
+    """
+    選択中なオブジェクトを検索する
+    """
+    obj = get_active_obj()
+    res = (o for o in bpy.context.scene.objects if (o.select))
+    if exclude_active:
+        res = tuple(o for o in res if (o != obj))
+    return res
+
+def get_sel_obj():
+    """
+    アクティブオブジェクトではないかつ選択中なオブジェクトを検索して、一番目に見つかるものを戻り値とする
+    """
+    return get_sel_objs(exclude_active = True)[0]
+
 def defac(f):
     """
     アクティブオブジェクトをデフォルトのオブジェクトにしてくれる関数
@@ -44,7 +63,42 @@ def get_visible_layers(obj = None,scn = None):
     vislayers = tuple(filter(lambda x: obj.layers[x]*scn.layers[x],range((20))))
     return (vislayers)
     
+def sync_layers(obj,sobj):
+    for i in rlen(obj.layers):
+        sobj.layers[i] = obj.layers[i]
+
+#########################################################vertex groups
+def make_group(groupname = "Bone"):
+    ct = bpy.context
+    scn = ct.scene
+    data = bpy.data
+    objs = scn.objects
+    obj = objs.active
+    vgroups = obj.vertex_groups
+
+    newgroup = vgroups.new(name=groupname)
+    return newgroup
+
+
+#########################################################object groups
+def make_group(name = "Group"):
+    dgrps = bpy.data.groups
+    ng = dgrps.new(name = name)
+    return ng
+
+@tuplize
+def add_objs_group(objs,target_group = None,make_new = False,new_name = "Group"):
+    dgrps = bpy.data.groups
+    if make_new or (target_group == None):
+        g = make_group(name = new_name)
+    else:
+        g = dgrps[target_group]
+    return map(acc(g,"g.objects.link"),objs)
+
+
 #########################################################bpy object manipulation
+def get_ac():
+    return bpy.context.scene.objects.active
 
 def set_ac(obj):
     ac = bpy.context.scene.objects.active
@@ -103,10 +157,12 @@ def get_obj_type_args(obj_name,obj_type,sub_type):
         
     return fdict[obj_type]
 
-def make_obj(name = "new_obj",type = "MESH",subtype = "",do_link = True):
+def make_obj(name = "new_obj",type = "MESH",subtype = "",do_link = True,layer_sync = True):
     """
     オブジェクトの作成を補助してくれる関数
     """
+    ctx = bpy.context
+    scn = ctx.scene
     dat = bpy.data
     dobjs = bpy.data.objects
     objs = bpy.context.scene.objects
@@ -120,8 +176,25 @@ def make_obj(name = "new_obj",type = "MESH",subtype = "",do_link = True):
     
     if do_link:
         objs.link(nobj)
+        
+    if layer_sync:
+        for i in rlen(scn.layers):
+            nobj.layers[i] = scn.layers[i]
+    
     return nobj
 	
+def make_arm(name = "New_Armature",do_link = True):
+    new_arm = make_obj(name = name,type = "ARMATURE",do_link = do_link)
+    return new_arm
+
+def make_cam(name = "New_Camera"):
+    scn = bpy.context.scene
+    objs = scn.objects
+    cam = bpy.data.cameras.new(name = name)
+    camo = bpy.data.objects.new(name = name,object_data = cam)
+    objs.link(camo)
+    return camo
+    
 def dupli_obj(link = True, obj = None,link_data = False,obj_name = "duplicated"):
     newobj = obj.copy()
     if link_data:

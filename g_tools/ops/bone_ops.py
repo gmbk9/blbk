@@ -35,6 +35,7 @@ class editbone_adjust_op(bpy.types.Operator):
             
     roll = bpy.props.FloatProperty(description = '',default = 0)
     envelope_distance = bpy.props.FloatProperty(description = '',default = 0)
+    envelope_weight = bpy.props.FloatProperty(description = '',default = 1)
     head_radius = bpy.props.FloatProperty(description = '',default = 0)
     tail_radius = bpy.props.FloatProperty(description = '',default = 0)
 
@@ -47,6 +48,7 @@ class editbone_adjust_op(bpy.types.Operator):
                             trans_tail = self.offset_tail,
                             roll = self.roll,
                             envelope_distance = self.envelope_distance, 
+                            envelope_weight = self.envelope_weight,
                             head_radius = self.head_radius, 
                             tail_radius = self.tail_radius,
                             target_bone = self.target_bone)
@@ -64,13 +66,14 @@ class envelope_armature_settings_op(bpy.types.Operator):
     
 
 
-    env_dist = bpy.props.FloatProperty(description = 'Envelope distance',default = 0.25)
+    envelope_distance = bpy.props.FloatProperty(description = 'Envelope distance',default = 0.25)
+    envelope_weight = bpy.props.FloatProperty(description = 'Envelope weight',default = 1.0)
     head_radius = bpy.props.FloatProperty(description = 'Head radius',default = 0.0)
     tail_radius = bpy.props.FloatProperty(description = 'Tail radius',default = 0.0)
 
 
     def execute(self, context):
-        armature_fs.envelope_armature_settings(env_dist = self.env_dist,head_radius = self.head_radius,tail_radius = self.tail_radius)
+        armature_fs.envelope_armature_settings(envelope_distance = self.envelope_distance,envelope_weight = self.envelope_weight,head_radius = self.head_radius,tail_radius = self.tail_radius)
         return {'FINISHED'}
         
 class GBonePanel(bpy.types.Panel):

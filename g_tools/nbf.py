@@ -14,8 +14,30 @@ def inverterate(f):
     def inverted(*args,**kwargs):
         return not f(*args,**kwargs)
     return inverted
-    
 
+def tuplize(f):
+    def tuplized(*args, **kwargs):
+        return tuple(f(*args, **kwargs))
+
+    return tuplized
+
+def tuplize_input(f):
+    def altered(*args, **kwargs):
+        return f(tuple(tuple(a) for a in args), **kwargs)
+
+
+#########################################################reflection
+def get_argc(f):
+    """Return the required argument count of the provided function, f."""
+    return f.__code__.co_argcount
+    
+def get_kwargc(f):
+    """Return the required argument count of the provided function, f."""
+    return f.__code__.co_kwonlyargcount
+    
+def is_running(g):
+    return g.gi_running
+    
 #########################################################functional(?)
 
 def assoc(item, lst, key = None,test = None):
@@ -267,6 +289,35 @@ def setattr2(i,prop,val):
     if type(prop == int):
         setidx(i,prop,val)
 
+def bind(f,c):
+    """Return a function that calls the first argument with the second argument."""
+    return partial(f,c)
+
+def unbind(f):
+    """Return a function does not receive its class as its first argument."""
+    return f.__func__
+
+def rebind(f,c):
+    """
+    args:
+        f:
+            function
+        c:
+            class
+    Set f's default first argument to c.
+    Probably strips away all classes.
+    """
+    return partial(f.__func__,c)
+
+def unpack(l):
+    return reduce(lambda x,y: (*x,*y),l)
+    
+def rlen(x,*args):
+    defaults = (0,0,1)
+    start,sub,step = default_fill(args,defaults)
+    end = len(x)-sub
+    return range(start,end,step)
+    
 #########################################################arg analysis
 def argfill(expected,*args):
     diff = (expected-len(args))
@@ -311,7 +362,14 @@ def pi_range(res):
 def tau_range(res):
     tau = pi*2
     return (0,*tuple((tau/res)*r for r in range(1,res)))
-    
+
+def roundtuple(tupleco, precision=5, scale=1):
+    return tuple(round(co * scale, precision) for co in tupleco)
+
+def precision_drop(num, precision, scale=1):
+    prec = 10 ** precision
+    return int((num * scale) * prec) / prec
+
 #########################################################set analysis
 def even_length(res):
     return even(len(res))
@@ -417,7 +475,9 @@ def normalizemu(x):
     return x.normalized()
     
 #########################################################misc
-
+def anymap(*args,**kwargs):
+    return any(map(*args,**kwargs))
+    
 def passmap(*args,**kwargs):
     for x in map(*args,**kwargs): pass
 
@@ -534,6 +594,9 @@ def acc(o,instrs,):
     return accrate(o,instrs,0)
 
 def accrate(o,instrs,parse_index):
+    """
+    acc補助用
+    """
     if parse_index == len(instrs):
         return o
     ftype,i = instrs[parse_index]
@@ -550,7 +613,7 @@ def accrate(o,instrs,parse_index):
 
 def accset(o,instrs,val):
     """
-    Parse an accessor string into a series of getattr statements.
+    acc補助用
     """
 
     instrs = acc_instparse(instrs)
@@ -561,6 +624,9 @@ def accset(o,instrs,val):
     return accsetrate(o,instrs,val,0)
 
 def accsetrate(o,instrs,val,parse_index):
+    """
+    acc補助用
+    """
     if parse_index == len(instrs)-1:
         return setattr(o,instrs[-1][-1],val)
     ftype,i = instrs[parse_index]
@@ -576,6 +642,9 @@ def accsetrate(o,instrs,val,parse_index):
     return accsetrate(g(o,i),instrs,val,parse_index + 1)
     
 def acc_instparse(i,accdict = {'.':'0','[':'1','(':'2'}):
+    """
+    acc補助用
+    """
     def clip_initial(inst,accdict = {'.':'0','[':'1','(':'2'}):
         for i in range(len(inst)):
             if inst[i] in "([.":
@@ -600,7 +669,6 @@ def prop_switch(o,prop,new_val = True):
             accset(o,prop,init_val)
         yield is_even
         c+=1
-    
 
 #vector map return retrieve example
 #q = map(lambda x: (lambda v: ((v).rotate(Euler((30,90,20))),v))(Vector(x))[1],cos)
@@ -618,7 +686,3 @@ def sreduce_wrap(start_indices,strings,offset_end = 1,offset_start = 0):
     
 def reduce_wrap(f,lst,offset_end = 1,offset_start = 0):
     return reduce(f,lstwrap(lst,offset_start,offset_end))
-    
-def format_squeeze(start_indices,strings):
-    space = reduce(lambda x,y: (*x,start_indices[x+1]-x[-1]) ,((start_indices[0]),*start_indices[1::]))
-    
