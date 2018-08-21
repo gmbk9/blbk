@@ -15,3 +15,24 @@ def make_point_arm_mod(name,obj = None,sobj = None):
 def make_mod(name,type,obj = None):
     return obj.modifiers.new(name = name,type = type)
     
+@defac
+def make_modifier_shapes(obj = None,target_mod = "Armature"):
+    ctx = bpy.context
+    scn = ctx.scene
+    objs = scn.objects
+    cf = scn.frame_current
+    
+    mods = obj.modifiers
+    arm_mod = tuple((m for m in mods if m.name == target_mod))[0]
+    mname = arm_mod.name
+    
+    fs = scn.frame_start
+    fe = scn.frame_end
+    fr_range = range(fs,fe)
+    
+    for x in (fr_range):
+        scn.frame_set(x)
+        bpy.ops.object.modifier_copy(modifier = mname)
+        bpy.ops.object.modifier_apply(modifier = mods[-1].name, apply_as='SHAPE')
+    
+    scn.frame_set(cf)
