@@ -374,7 +374,7 @@ def mesh_part_separate(obj = None,invert = False):
     
     return nobjs
 
-########################################################頂点グループ像関連
+########################################################頂点グループつまりウェイト像関連
 @defac
 def parts_to_vgroups(obj = None,parts = None,vg_name = "part_group_"):
     if parts == None:
@@ -387,9 +387,46 @@ def parts_to_vgroups(obj = None,parts = None,vg_name = "part_group_"):
     
     return vgs
 
+def weight_copy(v1, v2_idx, vgroups = None):
+    """
+    :param v1: 情報源となる頂点オブジェクト
+    :param v2_idx: ウェイトを貰う頂点のインデックス
+    :param vgs: オブジェクトの頂点グループリスト
+    :return:
+    """
+    vgs = tuple(vgroups[g.group] for g in v1.groups)
+    ws = tuple(g.weight for g in v1.groups)
+    for g, w in zip(vgs, ws):
+        g.add([v2_idx], w, "ADD")
+
+def clean_vertex_groups(obj = None):
+    obj = objs.active
+    mesh = obj.data
+    verts = mesh.vertices
+    edges = mesh.edges
+    faces = mesh.polygons
+    vgroups = obj.vertex_groups
+    vgroupdict = {}
+    c=0
+    for v in verts:
+        for g in v.groups:
+            vgn = vgroups[g.group].name
+            try:
+                vgroupdict[vgn].append(c)
+            except:
+                vgroupdict.update({vgn:[c]})
+        c+=1
+
+    for g in vgroups:
+        vgn = g.name
+        try:
+            q = (vgn,len(vgroupdict[vgn]))
+        except Exception as e:
+            vgroups.remove(g)
+
 #########################################################鏡像関連
 @defac
-def find_mirror(cutoff=.001, type="both", extend=True, scale=1, basis=True, active_key=False, prec=4, obj=None):
+def find_mirror(cutoff=.001, type="both", extend=True, scale=1, basis=True, active_key=False, prec=4, obj=None,selected_only = True):
     mesh = bpy.data.objects[obj.name].data.name
     verts = bpy.data.meshes[mesh].vertices
     sks = obj.data.shape_keys
@@ -467,9 +504,51 @@ def mirror_sel(vdata=None, cutoff=.001, type="both", extend=True, scale=1, basis
     return vdata
 
 @defac
-def mirror_weight(vdata=None, cutoff=.001, type="both", scale=1, basis=True, active_key=False, prec=4,
-               obj=None):
-    pass
+def mirror_weights(mirror_verts, mirror_dict, obj=None, vgroups=None,selected_only = True):
+    mesh = bpy.data.objects[obj.name].data.name
+    verts = bpy.data.meshes[mesh].vertices
+    errs = []
+    vgroups = obj.vertex_groups
+
+    for v in mirror_verts:
+        vco, vidx = v
+        vert1 = verts[vidx]
+        if selected_only:
+            if not vert1.select:
+                continue
+        try:
+            for mvidx in mirror_dict[vco]:
+                mvert = verts[mvidx]
+                mvgs = tuple(vgroups[g.group] for g in mvert.groups)
+                for g in mvgs:
+                    g.remove(mvidx)
+                weight_copy(vert1, mvidx, vgroups=vgroups)
+        except Exception as e:
+            print(str(e))
+            errs.append((e, vidx))
+    return errs
+
+@defac
+def mirror_weights_exec(vdata=None, cutoff=.001, type="both", extend=True, scale=1, basis=True, active_key=False,
+                        prec=4, obj=None,selected_only = True):
+    locs = dict(locals())
+    locs.pop("vdata")
+
+    mode = set_mode('OBJECT')
+    if vdata == None:
+        vdata = find_mirror(**locs)
+    selvertsL, vcodictL, selvertsR, vcodictR = vdata
+
+    vgroups = obj.vertex_groups
+
+    tdict = {"l>r": ((selvertsL, vcodictR),), "r>l": ((selvertsL, vcodictR),),
+             "both": ((selvertsL, vcodictR), (selvertsR, vcodictL),)}
+    for vs, vdict in tdict[type]:
+        mirror_weights(vs, vdict, obj=obj, vgroups=vgroups, selected_only = selected_only)
+
+    set_mode(mode)
+    return vdata
+
 
 #########################################################その他
 @bm_install

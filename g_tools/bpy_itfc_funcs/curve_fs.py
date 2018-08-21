@@ -98,12 +98,12 @@ def make_curve_lattice(obj = None,reso = None,use_outside = True,scale = None,do
 
 def  unpack_splines(objs):
     try:
-        l = len(objs) 
+        l = len(objs)
     except:
         objs = (objs,)
     vs = tuple(rec_unmap(map(lambda v: v,unpack(map(lambda s: s.points,unpack(map(lambda o: o.data.splines,objs)))))))
     return vs
-    
+
 @defac
 def symmetrize_spline(obj = None,mirror_func = None):
     pts = unpack_splines(obj = obj)
@@ -115,15 +115,15 @@ def symmetrize_spline(obj = None,mirror_func = None):
     spl_points = tuple(map(lambda s:s.points,spls))
     spl_lens = tuple(map(lambda collidx:len(spl_points[collidx]),rlenspls))
     nspls = tuple(map(lambda s:c.splines.new(type = spls[s].type),range(lenspls)))
-    
+
     new_spline_points = tuple(map(lambda sidx: nspls[sidx].points.add(spl_lens[sidx]-1),rlenspls))
-    new_spline_points = tuple(map(lambda sidx: 
+    new_spline_points = tuple(map(lambda sidx:
         tuple(map(lambda vidx: setattr(nspls[sidx].points[vidx],"co",spls[sidx].points[vidx].co),
         range(spl_lens[sidx]))),
         rlenspls))
-    
+
     all(map(lambda sidx: prop_copy(nspls[sidx],spls[sidx],),rlenspls))
-    
+
     if mirror_func == None:
         def mirror_func(nspls,spls):
             for s in nspls:
@@ -141,26 +141,26 @@ def curve_to_armature(obj = None,base_name = "Bone",make_new_arm = True,arm = No
     else:
         if arm == None:
             arm = get_sel_obj()
-            
-            
+
+
     for i in rlen(arm.layers):
         arm.layers[i] = True
     arm.data.draw_type = "STICK"
     mods = obj.modifiers
     splines = tuple(s.bezier_points if s.type == "BEZIER" else s.points for s in obj.data.splines)
-    
+
     ac = set_ac(arm)
     res = tuple(map(lambda verts: tuple(map(lambda v: bone_fs.make_bone(name = base_name+str(verts[0]),scale = scale,obj = arm,loc = v.co[0:3],props = bone_props),verts[1])),enumerate(splines)))
     res = unpack(res)
     res = list(b.name for b in res)
     res.sort()
-    
+
     #rootボーンが指定された場合、チュープルの前に置いとく
     if root_bone == None:
         bone_names = res
     else:
         bone_names = (root_bone,*res)
-        
+
     if do_armature:
         mod = mods.new(name = "Curve_to_Armature",type = "ARMATURE")
         props = {"use_vertex_groups":not use_apply_on_spline,"use_bone_envelopes":use_apply_on_spline,"object":arm,"show_in_editmode":True,"use_apply_on_spline":use_apply_on_spline,}
@@ -169,10 +169,10 @@ def curve_to_armature(obj = None,base_name = "Bone",make_new_arm = True,arm = No
     if do_symmetrize:
         armature_fs.symmetrize_armature(obj = arm)
         curve_fs.symmetrize_spline(obj = obj)
-        
+
     if obj_trans_copy:
         bone_fs.bone_trans(obj.matrix_world,bone_names = bone_names,obj = arm,scale = scale)
-        
+
     mode = set_mode("EDIT")
     ebones = arm.data.edit_bones
     c = 0
@@ -190,6 +190,54 @@ def curve_to_armature(obj = None,base_name = "Bone",make_new_arm = True,arm = No
         c+=1
     set_mode(mode)
     set_ac(ac)
-    
+
     return arm
-    
+
+def make_bevel_curve(split_bevel=True, curve_type="n", bevel_curve_type="p", use_existing_bevel=False,
+                bevel_obj_name="Bevel_curve"):
+    objs = bpy.context.scene.objects
+    curve_type_dict = {"NURBS": "NURBS", "POLY": "POLY", "BEZIER": "BEZIER", "n": "NURBS", "p": "POLY",
+                       "b": "BEZIER"}
+    nc = gtls.make_obj(type="CURVE", name="Basis_curve")
+    prop_dict = {"data.dimensions": "3D", "data.use_uv_as_generated": True, "data.use_stretch": True,
+                 "data.use_deform_bounds": True}
+    nc.data.dimensions = "3D"
+    nc.data.use_uv_as_generated = True
+    nc.data.use_stretch = True
+    nc.data.use_deform_bounds = True
+    nspl = nc.data.splines.new(type=curve_type_dict[curve_type])
+    nspl.use_endpoint_u = True
+    nc.location = bpy.context.scene.cursor_location
+    set_ac(nc)
+    nc.select = True
+    nspl.points.add(4)
+    for x in range(5):
+        nspl.points[x].co = (x, 0, 0, 1)
+    nspl.order_u = 5
+
+    if use_existing_bevel:
+        nc2 = objs[bevel_obj_name]
+    else:
+        nc2 = gtls.make_obj(type="CURVE", name="Bevel_curve")
+    nc2.data.dimensions = "3D"
+    nc2.data.use_uv_as_generated = True
+    nc2.data.use_stretch = True
+    nc2.data.use_deform_bounds = True
+    nspl2 = nc2.data.splines.new(type=curve_type_dict[bevel_curve_type])
+    nspl2.use_endpoint_u = True
+    if split_bevel:
+        nspl2.points.add(1)
+        nspl3 = nc2.data.splines.new(type="POLY")
+        nspl3.use_endpoint_u = True
+        nspl3.points.add(1)
+        for x in range(2):
+            nspl2.points[x].co = (x, -x, 0, 1)
+        for x in range(2):
+            nspl3.points[x].co = (-x, -x, 0, 1)
+    else:
+        nspl2.points.add(2)
+        for x in range(3):
+            nspl2.points[x].co = (x - 1, -abs(1 - x), 0, 1)
+    nc.data.bevel_object = nc2
+
+    return (nc, nc2)
