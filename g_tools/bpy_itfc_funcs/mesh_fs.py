@@ -495,7 +495,7 @@ def mirror_sel(vdata=None, cutoff=.001, type="both", extend=True, scale=1, basis
         vdata = find_mirror(**locs)
     selvertsL, vcodictL, selvertsR, vcodictR = vdata
 
-    tdict = {"l>r": ((selvertsL, vcodictR),), "r>l": ((selvertsL, vcodictR),),
+    tdict = {"l>r": ((selvertsL, vcodictR),), "l<r": ((selvertsL, vcodictR),),
              "both": ((selvertsL, vcodictR), (selvertsR, vcodictL),)}
     for vs, vdict in tdict[type]:
         mirror_selector(vs, vdict, obj=obj)
@@ -521,7 +521,7 @@ def mirror_weights(mirror_verts, mirror_dict, obj=None, vgroups=None,selected_on
                 mvert = verts[mvidx]
                 mvgs = tuple(vgroups[g.group] for g in mvert.groups)
                 for g in mvgs:
-                    g.remove(mvidx)
+                    g.remove([mvidx])
                 weight_copy(vert1, mvidx, vgroups=vgroups)
         except Exception as e:
             print(str(e))
@@ -541,7 +541,7 @@ def mirror_weights_exec(vdata=None, cutoff=.001, type="both", extend=True, scale
 
     vgroups = obj.vertex_groups
 
-    tdict = {"l>r": ((selvertsL, vcodictR),), "r>l": ((selvertsL, vcodictR),),
+    tdict = {"l>r": ((selvertsL, vcodictR),), "l<r": ((selvertsL, vcodictR),),
              "both": ((selvertsL, vcodictR), (selvertsR, vcodictL),)}
     for vs, vdict in tdict[type]:
         mirror_weights(vs, vdict, obj=obj, vgroups=vgroups, selected_only = selected_only)
