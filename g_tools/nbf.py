@@ -218,17 +218,11 @@ def wrapmap2(x,y):
     return wrapped
     
 def wreduce(f,c):
-    """
-    Wrap the first element of a generator or collection in functional form and reduce it.
-    For when you want to apply one function of two arguments that unconditionally calls the first... I guess.
-    """
-    #if the collection is a stream
     if type(c) not in (list,tuple,set):
         for x in c:
             y = lambda *args,**kwargs:c[0]
             break
         c2 = (y,c)
-    #if it's an immediate collection
     else:
         c2 = (lambda *args,**kwargs: c[0],*c[1::])
     return reduce(f,c2)
@@ -238,15 +232,6 @@ def lstfill(required,args):
     arglen = len(args)
     diff = (required-arglen)
     return (*args,*(None for x in range(diff*int(diff>0))))
-    
-    '''
-    arglen = len(args)
-    if arglen == 1:
-        args == args[0]
-        arglen = len(args)
-    diff = (expected-arglen)
-    return (*args,*(None for x in range(diff*int(diff>0))))
-    '''
     
 def setidx(i,idx,val):
     i[idx] = val
@@ -275,19 +260,27 @@ def inone_test(x):
     
 def getattr2(i,prop):
     """
-    getattr, but if passed an integer get the value fo the index i.
-    may have unintended effects if there's an occasion where integers are actually used as a property.
+    getattrと同様に動作しますが、整数が渡されたら整列へのインデックスと見なしてiへアクセッスして中身を戻す
+    辞書とかで使うと意図してない結果となる化も知れないので注意
+    getattr, but if passed an integer get the value of the index i.
     """
     if type(prop == int):
         return getidx(i,prop)
-    
+    else:
+        return getattr(i,prop)
+
 def setattr2(i,prop,val):
     """
+    setattrと同様に動作しますが、整数が渡されたら整列へのインデックスと見なしてiへアクセッスして中身を設定する
+    はずだが多分壊れてる
+    不可変なデータだとエラーが出ちゃいます
     setattr, but if passed an integer set the value of the index i.
     will fail on immutable data.
     """
     if type(prop == int):
         setidx(i,prop,val)
+    else:
+        setattr(i,prop,val)
 
 def bind(f,c):
     """Return a function that calls the first argument with the second argument."""
@@ -305,7 +298,6 @@ def rebind(f,c):
         c:
             class
     Set f's default first argument to c.
-    Probably strips away all classes.
     """
     return partial(f.__func__,c)
 
@@ -365,6 +357,16 @@ def tau_range(res):
 
 def roundtuple(tupleco, precision=5, scale=1):
     return tuple(round(co * scale, precision) for co in tupleco)
+
+def get_rounded_vector_dict(coords = None,precision = 4, scale = 1):
+    codict = {}
+    for coidx,co in enumerate(coords):
+        rco = roundtuple(tuple(co), precision = precision, scale=scale)
+        try:
+            codict[rco].append(coidx)
+        except:
+            codict[rco] = [coidx]
+    return codict
 
 def precision_drop(num, precision, scale=1):
     prec = 10 ** precision
@@ -462,7 +464,61 @@ def lstwrap(lst,offset_start,offset_end,match_type = True,rev = False):
     return res
     
 #########################################################string related
-    
+def check_side(s):
+    lrrgx = '(^[右左](?=\w+))|([\._][RLrl]$)'
+    res = re.search(lrrgx,s)
+    if not res:
+        return None
+
+    mirror_bool_dict = {"左":0,"L":0,"l":0,"右":1,"R":1,"r":1}
+    mirror_dict = rev_expand({"左":"右","L":"R","l":"r"})
+    side_types = ("JP","EN")
+    side,delim,base_name,opposite = ("","","","")
+    taglen,side_idx = 0,0
+
+    gr = res.groups()
+    for gidx,g in enumerate(gr):
+        if g:
+            taglen = len(g)
+            if gidx == 0:
+                side = g[0]
+                delim = ""
+                base_name = s[taglen::]
+                opposite = mirror_dict[side] + base_name
+                side_idx = mirror_bool_dict[side]
+            else:
+                side = g[-1]
+                delim = g[0]
+                base_name = s[0:(-taglen)]
+                opposite = base_name + delim + mirror_dict[side]
+                side_idx = mirror_bool_dict[side]
+            return (side_idx,side,g,opposite,base_name,s,delim,side_types[gidx])
+    return None
+
+
+def get_mirror_name(bname):
+    side,lang = check_bnameLRintntl(bname)
+    opp_name = ""
+    if lang == "EN":
+        opp_name = bname[0:-2] + side
+    if lang == "JP":
+        opp_name = bname
+        opp_name = side +opp_name[1::]
+    return opp_name
+
+def get_lr_name(name, lang="jp"):
+    lrdict = {
+        "jp": (("右", "左"), lambda x, lr: lr + x),
+        "en": (("_L", "_R"), lambda x, lr: x + lr),
+        "en.": ((".L", ".R"), lambda x, lr: x + lr),
+    }
+
+    lrtype = lrdict[lang]
+    names = []
+    for t in lrtype[0]:
+        names.append(lrtype[1](name, t))
+    return names
+get_lr = get_lr_name
     
 #########################################################mathutils related
 def dotmu(x,y):
@@ -475,6 +531,21 @@ def normalizemu(x):
     return x.normalized()
     
 #########################################################misc
+def rev_dict(d):
+    return {d[i]:i for i in d}
+revdict = rev_dict
+
+def rev_expand(d):
+    d.update({d[i]:i for i in d})
+    return d
+
+def try_key(d,i,v = 1):
+    try:
+        return d[i]
+    except:
+        d[i] = v
+        return None
+
 def anymap(*args,**kwargs):
     return any(map(*args,**kwargs))
     

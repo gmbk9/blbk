@@ -1,5 +1,6 @@
 ﻿# -*- coding: utf-8 -*-
 import bpy
+import bmesh
 from g_tools.nbf import *
 from g_tools.gtls import defac,get_ac,set_ac,set_mode,moderate,get_sel_obj,get_sel_objs
 from .. import gtls
@@ -62,9 +63,20 @@ def sel_items(targets,obj = None,state = True,all = False,collection = "vertices
         for i in targets:
             i.select = state
 
+@defac
+def deselect_mesh_parts(obj = None):
+    mesh = obj.data
+    verts,edges,faces = (mesh.vertices,mesh.edges,mesh.polygons)
+    zipped = tuple(zip(verts, edges, faces))
+    original_states = tuple(map(lambda items: tuple(map(lambda i: i.select,items),zipped)))
+    for items in zipped:
+        for i in items:
+            i.select = False
+    return original_states
+
 #########################################################bmesh関連/bmesh related
 def get_bmesh(obj = None):
-    mesh = bpy.data.objects[obj.name].data
+    mesh = obj.data
     bm = bmesh.new()
     bm.from_mesh(mesh)
     return bm
@@ -86,7 +98,7 @@ def make_hull(do_link=False, name="hull_obj",obj = None):
 @defac
 def get_separated_parts(obj =  None,bm = None):
     objs = bpy.context.scene.objects
-    mesh = (obj.data)
+    mesh = obj.data
     verts = mesh.vertices
     
     vidxs = range(len(verts))
@@ -205,6 +217,30 @@ def get_nmf_verts(obj=None, bm=None):
 
 
 #########################################################シェープキー（つまりモーフ）関連/shape key related
+@defac
+def determine_vertex_data_source(obj = None,target_shape_key_index = 0, use_active_shape_key = False):
+    mesh = obj.data
+    verts = mesh.vertices
+    keys = get_keys(obj=obj)
+
+    if use_active_shape_key == True:
+        if obj.active_shape_key == None:
+            obj.active_shape_key_index = 0
+        choice = obj.active_shape_key.data
+    elif target_shape_key_index > 0:
+        choice = keys[target_shape_key_index].data
+    else:
+        choice = verts
+
+    return choice
+
+@defac
+def get_keys(obj = None,basis_name = "Basis"):
+    if obj.data.shape_keys == None:
+        bss = obj.shape_key_add(name = basis_name)
+    keys = obj.data.shape_keys.key_blocks
+    return keys
+
 @defac
 def choose_verts(obj=None, type="mesh"):
     mesh = bpy.data.objects[obj.name].data.name
@@ -351,30 +387,44 @@ def create_modified_duplicate2(apply_count = 0,obj_name = "modified",mesh_mod_cl
     set_ac(ac)
     return modified
 
-#########################################################鏡像関連
+#########################################################パーツ関連
 @defac
 def mesh_part_separate(obj = None,invert = False):
-    
+
     parts = get_separated_parts(obj = obj)
     nobjs = tuple(gtls.dupli_obj(obj = obj) for i in parts)
     nobj_bms = tuple(get_bmesh(obj = o) for o in nobjs)
-    
+
     for bmidx,bm in enumerate(nobj_bms):
         bmverts = tuple(bm.verts)
         for pidx,part in enumerate(parts):
             if cnegate(pidx == bmidx,condition = invert):
                 continue
-            else: 
+            else:
                 for vidx in part:
                     bm.verts.remove(bmverts[vidx])
 
     for o,bm in zip(nobjs,nobj_bms):
         bm.to_mesh(o.data)
         bm.free()
-    
+
     return nobjs
 
-########################################################頂点グループつまりウェイト像関連
+########################################################頂点グループつまりウェイト像関連/vertex group related
+def get_vertex_weights(v):
+    return tuple((g.group,g.weight) for g in v.groups)
+
+def clear_vertex_weights(v,vgroups):
+    """
+    :param v: 頂点オブジェクト
+    :param vgroups: 頂点グループのiterable
+    :return:　無し
+    """
+    mvgs = (vgroups[g.group] for g in v.groups)
+    for g in mvgs:
+        g.remove([v.index])
+    return None
+
 @defac
 def parts_to_vgroups(obj = None,parts = None,vg_name = "part_group_"):
     if parts == None:
@@ -386,6 +436,34 @@ def parts_to_vgroups(obj = None,parts = None,vg_name = "part_group_"):
         vg.add(part,1,"ADD")
     
     return vgs
+
+
+def weight_replace(weight_data,vidx,obj,do_clear):
+    """
+    :param weight_data: (頂点グループインデックス、ウェイト)を複数格納するiterable
+    :param vidx: 頂点インデックス
+    :param obj: データの対象となるオブジェクト
+    :return: 無し
+    """
+    verts = obj.data.vertices
+    vgroups = obj.vertex_groups
+    v = verts[vidx]
+    if do_clear:
+        clear_vertex_weights(v,vgroups)
+    for gidx,w in weight_data:
+        vg = vgroups[gidx]
+        vgname = vg.name
+        side_data = check_side(vgname)
+        if side_data != None:
+            opposite_name = side_data[3]
+            try:
+                vg = vgroups[opposite_name]
+            except:
+                continue
+        vg.add([vidx],w,"ADD")
+        if not do_clear:
+            vg.add([vidx], w, "REPLACE")
+
 
 def weight_copy(v1, v2_idx, vgroups = None):
     """
@@ -399,8 +477,8 @@ def weight_copy(v1, v2_idx, vgroups = None):
     for g, w in zip(vgs, ws):
         g.add([v2_idx], w, "ADD")
 
+@defac
 def clean_vertex_groups(obj = None):
-    obj = objs.active
     mesh = obj.data
     verts = mesh.vertices
     edges = mesh.edges
@@ -424,33 +502,29 @@ def clean_vertex_groups(obj = None):
         except Exception as e:
             vgroups.remove(g)
 
-#########################################################鏡像関連
+#########################################################鏡像関連/mirroring related
 @defac
-def find_mirror(cutoff=.001, type="both", extend=True, scale=1, basis=True, active_key=False, prec=4, obj=None,selected_only = True):
-    mesh = bpy.data.objects[obj.name].data.name
-    verts = bpy.data.meshes[mesh].vertices
-    sks = obj.data.shape_keys
-    if sks == None:
-        bss = obj.shape_key_add(name="Basis")
-        sks = obj.data.shape_keys
-    keys = sks.key_blocks
+def find_mirror(cutoff=.001, precision = 4, scale=1, target_shape_key_index = 0, use_active_shape_key=False, prec=4, obj=None):
+    mesh = obj.data
+    verts = mesh.vertices
+    keys = get_keys(obj = obj)
 
     selvertsR = []
     selvertsL = []
+    mid = []
 
     vcodictL = {}
     vcodictR = {}
 
-    if basis == True:
-        vertsx = keys[0].data
-    elif active_key == True:
-        vertsx = obj.active_shape_key.data
-    else:
-        vertsx = verts
+    vertsx = determine_vertex_data_source(obj=obj, target_shape_key_index=target_shape_key_index,
+                                          use_active_shape_key=use_active_shape_key)
 
     for vidx, v in enumerate(vertsx):
-        if v.co[0] > 0:
-            vco = roundtuple(tuple(v.co), prec, scale=scale)
+        vco = roundtuple(tuple(v.co), precision = precision, scale=scale)
+        absx = abs(vco[0])
+        if absx < cutoff:
+            mid.append(vidx)
+        elif v.co[0] > 0:
             if verts[vidx].select == True:
                 selvertsL.append((vco, vidx))
             try:
@@ -458,7 +532,8 @@ def find_mirror(cutoff=.001, type="both", extend=True, scale=1, basis=True, acti
             except:
                 vcodictL.update({vco: [vidx]})
         elif v.co[0] < 0:
-            vco = roundtuple(tuple((abs(v.co[0]),*v.co[1::])), prec, scale=scale)
+            vco = (absx,*vco[1::])
+            #vco = roundtuple(tuple((abs(v.co[0]),*v.co[1::])), precision = precision, scale=scale)
             if verts[vidx].select == True:
                 selvertsR.append((vco, vidx))
             try:
@@ -466,13 +541,46 @@ def find_mirror(cutoff=.001, type="both", extend=True, scale=1, basis=True, acti
             except:
                 vcodictR.update({vco: [vidx]})
 
-    return selvertsL, vcodictL, selvertsR, vcodictR
+    return selvertsL, vcodictL, selvertsR, vcodictR, mid
 
+@defac
+def find_mirror_selected(precision=4, scale=1, target_shape_key_index = 0, use_active_shape_key=False, obj=None):
+    mesh = obj.data
+    verts = mesh.vertices
+    keys = get_keys(obj=obj)
+
+    vertsx = determine_vertex_data_source(obj = obj,target_shape_key_index = target_shape_key_index, use_active_shape_key=use_active_shape_key)
+
+    coords = (v.co for v in vertsx)
+    vcodict = get_rounded_vector_dict(coords, precision=precision, scale=scale)
+
+    selstates = (v.select for v in verts)
+    vrange = range(len(verts))
+
+    selverts = tuple(compress(vrange, selstates))
+    selvertsx = (vertsx[vidx] for vidx in selverts)
+
+    m_r_coords = (roundtuple(tuple((-(v.co[0]), *v.co[1::])), precision=precision, scale=scale) for v in selvertsx)
+
+    def vcodict_check(vco,vcodict = None,verts = None):
+        try:
+            matches = (verts[vidx] for vidx in vcodict[vco])
+            return tmap(get_vertex_weights, matches)
+        except:
+            pass
+        return ()
+
+
+    vcodict_check2 = partial(vcodict_check,vcodict = vcodict,verts = verts)
+    res = tmap(vcodict_check2, m_r_coords)
+
+    return res, selverts
+
+@defac
 def mirror_selector(mirror_verts, mirror_dict, obj=None):
     mode = set_mode('OBJECT')
-    obj = bpy.context.scene.objects.active
-    mesh = bpy.data.objects[obj.name].data.name
-    verts = bpy.data.meshes[mesh].vertices
+    mesh = obj.data
+    verts = mesh.vertices
     errs = []
     for v in mirror_verts:
         vco, vindex = v
@@ -480,23 +588,24 @@ def mirror_selector(mirror_verts, mirror_dict, obj=None):
             for vert in mirror_dict[vco]:
                 verts[vert].select = True
         except Exception as e:
-            errs.append(e, vindex)
+            errs.append((e, vindex))
     set_mode(mode)
     return errs
 
 @defac
-def mirror_sel(vdata=None, cutoff=.001, type="both", extend=True, scale=1, basis=True, active_key=False, prec=4,
+def mirror_sel(vdata=None, cutoff=.001, type="both", extend=True, precision=4, scale=1, target_shape_key_index = 0, use_active_shape_key=False,
                obj=None):
-    locs = dict(locals())
-    locs.pop("vdata")
-
     mode = set_mode('OBJECT')
     if vdata == None:
-        vdata = find_mirror(**locs)
-    selvertsL, vcodictL, selvertsR, vcodictR = vdata
+        vdata = find_mirror(cutoff = cutoff, precision = precision, scale = scale,target_shape_key_index = target_shape_key_index ,use_active_shape_key=use_active_shape_key,obj = obj)
+    selvertsL, vcodictL, selvertsR, vcodictR, mid = vdata
 
-    tdict = {"l>r": ((selvertsL, vcodictR),), "l<r": ((selvertsL, vcodictR),),
+    tdict = {"l>r": ((selvertsL, vcodictR),), "l<r": ((selvertsR, vcodictL),),
              "both": ((selvertsL, vcodictR), (selvertsR, vcodictL),)}
+
+    if extend == False:
+        deselect_mesh_parts(obj = obj)
+
     for vs, vdict in tdict[type]:
         mirror_selector(vs, vdict, obj=obj)
 
@@ -507,9 +616,9 @@ def mirror_sel(vdata=None, cutoff=.001, type="both", extend=True, scale=1, basis
 def mirror_weights(mirror_verts, mirror_dict, obj=None, vgroups=None,selected_only = True):
     mesh = bpy.data.objects[obj.name].data.name
     verts = bpy.data.meshes[mesh].vertices
-    errs = []
     vgroups = obj.vertex_groups
 
+    errs = []
     for v in mirror_verts:
         vco, vidx = v
         vert1 = verts[vidx]
@@ -529,25 +638,48 @@ def mirror_weights(mirror_verts, mirror_dict, obj=None, vgroups=None,selected_on
     return errs
 
 @defac
-def mirror_weights_exec(vdata=None, cutoff=.001, type="both", extend=True, scale=1, basis=True, active_key=False,
-                        prec=4, obj=None,selected_only = True):
-    locs = dict(locals())
-    locs.pop("vdata")
-
+def send_mirror_weights_exec(vdata=None, cutoff=.001, type="both", scale=1, target_shape_key_index=0, use_active_shape_key=False,
+                             precision=4, obj=None, selected_only = True):
     mode = set_mode('OBJECT')
     if vdata == None:
-        vdata = find_mirror(**locs)
+        vdata = find_mirror(target_shape_key_index = target_shape_key_index ,use_active_shape_key=use_active_shape_key,obj = obj,precision=precision, scale=scale)
     selvertsL, vcodictL, selvertsR, vcodictR = vdata
 
     vgroups = obj.vertex_groups
 
-    tdict = {"l>r": ((selvertsL, vcodictR),), "l<r": ((selvertsL, vcodictR),),
+    tdict = {"l>r": ((selvertsL, vcodictR),), "l<r": ((selvertsR, vcodictL),),
              "both": ((selvertsL, vcodictR), (selvertsR, vcodictL),)}
     for vs, vdict in tdict[type]:
         mirror_weights(vs, vdict, obj=obj, vgroups=vgroups, selected_only = selected_only)
 
     set_mode(mode)
     return vdata
+
+@defac
+def mirror_weights_exec(vdata=None, precision=4, scale=1, target_shape_key_index=0, use_active_shape_key=False,obj=None,do_clear = True,oper = None):
+    locs = dict(locals())
+    locs.pop("vdata")
+    locs.pop("do_clear")
+
+    mode = set_mode('OBJECT')
+    if vdata == None:
+        match_data, selverts = find_mirror_selected(target_shape_key_index = target_shape_key_index ,use_active_shape_key=use_active_shape_key,obj = obj,precision=precision, scale=scale)
+
+    vgroups = obj.vertex_groups
+
+    no_matches = []
+    for vmatches, vidx in zip(match_data, selverts):
+        if len(vmatches) == 0:
+            no_matches.append(vidx)
+            continue
+        match_weight_data = vmatches[0]
+        weight_replace(match_weight_data, vidx, obj, do_clear)
+
+    rep_msg = "Found no match for " + str(len(no_matches)) + " verts"
+    oper.report({"INFO"},rep_msg)
+
+    set_mode(mode)
+    return match_data, selverts, no_matches
 
 
 #########################################################その他
