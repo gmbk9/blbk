@@ -9,6 +9,41 @@ from bpy.types import Operator
 
 
 #opdef
+class bool_cut_select_op(bpy.types.Operator):
+    """NODESC"""
+    bl_idname = "mesh.bool_cut_select"
+    bl_label = "Bool Cut Select"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category ="Tools"
+    bl_options = {'UNDO','REGISTER'}
+    
+
+
+
+    def execute(self, context):
+        mesh_fs.bool_cut_select()
+        return {'FINISHED'}
+        
+class basis_swap_op(bpy.types.Operator):
+    """Basis shape key management"""
+    bl_idname = "mesh.basis_swap"
+    bl_label = "Basis Swap"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category ="Tools"
+    bl_options = {'UNDO','REGISTER'}
+    
+
+
+    delay_execution = bpy.props.BoolProperty(name = "Delay execution",description = "Delay execution",default = True)
+    
+    def execute(self, context):
+        if self.delay_execution:
+            return {'FINISHED'}
+        mesh_fs.basis_swap(oper = self,)
+        return {'FINISHED'}
+        
 class w_mirror_op(bpy.types.Operator):
     """ウェイトの鏡像化"""
     bl_idname = "mesh.w_mirror"
@@ -18,8 +53,8 @@ class w_mirror_op(bpy.types.Operator):
     bl_category = "Tools"
     bl_options = {'UNDO', 'REGISTER'}
 
-    scale = bpy.props.FloatProperty(default=1.0)
-    precision = bpy.props.IntProperty(default=4)
+    scale = bpy.props.FloatProperty(name = "Scale",default=1.0)
+    precision = bpy.props.IntProperty(name = "Rounding precision", default=4)
     target_shape_key_index = bpy.props.IntProperty(default=0)
     use_active_shape_key = bpy.props.BoolProperty(default=False)
     do_clear = bpy.props.BoolProperty(description = "Clear original weights on mirror targets",default=True)
@@ -67,6 +102,74 @@ class mirror_sel_op(bpy.types.Operator):
         mesh_fs.mirror_sel(cutoff = self.cutoff, scale = self.scale, precision = self.precision, type = self.type, extend = self.extend, target_shape_key_index = self.target_shape_key_index, use_active_shape_key = self.use_active_shape_key)
         return {'FINISHED'}
 
+class selectorator_op(bpy.types.Operator):
+    """NODESC"""
+    bl_idname = "mesh.selectorator"
+    bl_label = "Selectorator"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category ="Tools"
+    bl_options = {'UNDO','REGISTER'}
+    
+    modes = ("cross_loops","chain_loop","3d_cursor","lattice_loop","dot","vector","index")
+    def make_enum_data(modes):
+        lenmodes = len(modes)
+        names = tuple(" ".join(map(lambda n: (n[0].upper() + n[1::]),n.split("_"))) for n in modes)
+        tooltips = tuple(names)
+        enum_data = tuple(map(lambda i: (modes[i],names[i],tooltips[i]),range(lenmodes)))
+        return enum_data
+    selection_mode = bpy.props.EnumProperty(name = "Selection type",items = make_enum_data(modes))
+    
+    '''
+    selection_mode = bpy.props.EnumProperty(name = "Value type to pass",items = (
+    ('cross_loops','Vertices','Vertices'),
+    ('e','Edges','Edges'),
+    ('f','Faces','Faces'),
+    ('spl','Splines','Splines'),
+    ('fpts','First spline\'s points','First spline\'s points'),
+    ('obn','Object bones','Armature object\'s object mode bones'),
+    ('pbn','Pose bones','Armature object\'s pose mode bones'),
+    ('ebn','Edit bones','Armature object\'s edit mode bones'),))
+    '''
+    #selection_mode = bpy.props.StringProperty(description = 'Selection type',default = "cross_loops")
+    index_count = bpy.props.IntProperty(description = 'Count for index select',default = 50)
+    index_offset = bpy.props.IntProperty(description = 'Offset for index select',default = 0)
+    index_step = bpy.props.IntProperty(description = 'Step for index and cross select',default = 1)
+    lattice_reverse = bpy.props.BoolProperty(description = 'Reverse lattice select direction',default = False)
+    lattice_limit = bpy.props.BoolProperty(description = 'Limit lattice loop select to lattice bounds',default = False)
+
+    index_part_type = bpy.props.EnumProperty(name = "Value type to pass",items = (
+    ('v','Vertices','Vertices'),
+    ('e','Edges','Edges'),
+    ('f','Faces','Faces'),
+    ('spl','Splines','Splines'),
+    ('fpts','First spline\'s points','First spline\'s points'),
+    ('obn','Object bones','Armature object\'s object mode bones'),
+    ('pbn','Pose bones','Armature object\'s pose mode bones'),
+    ('ebn','Edit bones','Armature object\'s edit mode bones'),))
+
+    lattice_step_direction = bpy.props.EnumProperty(name = "Axis for lattice loop select",items = (
+    ('x','X','X'),
+    ('y','Y','Y'),
+    ('z','Z','Z'),
+    ))
+
+    def execute(self, context):
+        check_dict = {i:"MESH" for i in self.modes}
+        check_dict.update({"lattice_loop":"LATTICE",})
+        mesh_fs.selectorate(
+        selection_mode = self.selection_mode,
+        index_count = self.index_count,
+        index_step = self.index_step,
+        index_offset = self.index_offset,
+        index_part_type = self.index_part_type,
+        lattice_step_direction = self.lattice_step_direction,
+        lattice_reverse = self.lattice_reverse,
+        lattice_limit = self.lattice_limit,
+        check_dict = check_dict,
+        oper = self)
+        return {'FINISHED'}
+        
 #opdef
 class clean_vertex_groups_op(bpy.types.Operator):
     """頂点グループ欄を見やすくする為にウェイト情報がない頂点グループをメッシュから削除する"""
@@ -107,36 +210,50 @@ class GMeshPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         obj = context.object
-
+        
         #rowdefs
+        
+        row = layout.row()
+        row.operator("mesh.bool_cut_select")
+        
+        row = layout.row()
+        row.operator("mesh.basis_swap")
+        
         row = layout.row()
         row.operator("mesh.w_mirror")
-
-        #rowdefs
+        
         row = layout.row()
         row.operator("mesh.mirror_sel")
-
-        #rowdefs
+        
         row = layout.row()
         row.operator("mesh.sclean_vertex_groups")
-        #rowdefs
+        
         row = layout.row()
         row.operator("mesh.parts_to_vgroups")
+        
+        row = layout.row()
+        row.operator("mesh.selectorator")
+        
 
 def register():
     #regdef
+    bpy.utils.register_class(bool_cut_select_op)
+    bpy.utils.register_class(basis_swap_op)
     bpy.utils.register_class(w_mirror_op)
     bpy.utils.register_class(mirror_sel_op)
     bpy.utils.register_class(clean_vertex_groups_op)
     bpy.utils.register_class(parts_to_vgroups_op)
+    bpy.utils.register_class(selectorator_op)
     bpy.utils.register_class(GMeshPanel)
 
 def unregister():
     #unregdef
+    bpy.utils.unregister_class(basis_swap_op)
     bpy.utils.unregister_class(w_mirror_op)
     bpy.utils.unregister_class(mirror_sel_op)
     bpy.utils.register_class(clean_vertex_groups_op)
     bpy.utils.register_class(parts_to_vgroups_op)
+    bpy.utils.register_class(selectorator_op)
     bpy.utils.unregister_class(GMeshPanel)
-    
+    bpy.utils.unregister_class(bool_cut_select_op)
     

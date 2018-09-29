@@ -9,6 +9,30 @@ from bpy.types import Operator
 
 
 #opdef
+class simple_hair_curve_op(bpy.types.Operator):
+    """NODESC"""
+    bl_idname = "curve.simple_hair_curve"
+    bl_label = "Simple Hair Curve"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category ="Tools"
+    bl_options = {'UNDO','REGISTER'}
+    
+
+    split_bevel = bpy.props.BoolProperty(name = "Split bevel object in two", default = False)
+    use_cyclic_u = bpy.props.BoolProperty(name = "Use cyclic",default = True)
+    use_fill_caps = bpy.props.BoolProperty(name = "Use fill caps",default = True)
+
+    curve_type = bpy.props.StringProperty(default = "n")
+    bevel_curve_type = bpy.props.StringProperty(default = "p")
+
+
+
+
+    def execute(self, context):
+        curve_fs.simple_hair_curve(split_bevel = self.split_bevel,curve_type = self.curve_type,bevel_curve_type = self.bevel_curve_type,use_cyclic_u = self.use_cyclic_u,use_fill_caps = self.use_fill_caps)
+        return {'FINISHED'}
+        
 class curve_to_armature_op(bpy.types.Operator):
     """NODESC"""
     bl_idname = "curve.curve_to_armature"
@@ -43,16 +67,20 @@ class GCurvePanel(bpy.types.Panel):
 
         #rowdefs
         row = layout.row()
+        row.operator("curve.simple_hair_curve")
+        row = layout.row()
         row.operator("curve.curve_to_armature")
         
         
 def register():
     #regdef
+    bpy.utils.register_class(simple_hair_curve_op)
     bpy.utils.register_class(curve_to_armature_op)
     bpy.utils.register_class(GCurvePanel)
 
 def unregister():
     #unregdef
+    bpy.utils.unregister_class(simple_hair_curve_op)
     bpy.utils.unregister_class(curve_to_armature_op)
     bpy.utils.unregister_class(GCurvePanel)
     

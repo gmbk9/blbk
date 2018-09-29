@@ -7,6 +7,25 @@ from g_tools.bpy_itfc_funcs import armature_fs
 
 
 #opdef
+class select_by_tag_op(bpy.types.Operator):
+    """
+    Select bones by tag
+    名前に付いてるタグに基づいてボーンを選択する
+    """
+    bl_idname = "armature.select_by_tag"
+    bl_label = "Select By Tag"
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "TOOLS"
+    bl_category ="Tools"
+    bl_options = {'UNDO','REGISTER'}
+    
+
+    tag = bpy.props.StringProperty(description = 'Tag',default = "親")
+
+
+    def execute(self, context):
+        bone_fs.select_by_tag()
+        return {'FINISHED'}
         
 #opdef
 class editbone_adjust_op(bpy.types.Operator):
@@ -90,6 +109,8 @@ class GBonePanel(bpy.types.Panel):
 
         #rowdefs
         row = layout.row()
+        row.operator("armature.select_by_tag")
+        row = layout.row()
         row.operator("armature.editbone_adjust")
         
         row = layout.row()
@@ -97,12 +118,14 @@ class GBonePanel(bpy.types.Panel):
         
 def register():
     #regdef
+    bpy.utils.register_class(select_by_tag_op)
     bpy.utils.register_class(editbone_adjust_op)
     bpy.utils.register_class(envelope_armature_settings_op)
     bpy.utils.register_class(GBonePanel)
 
 def unregister():
     #unregdef
+    bpy.utils.unregister_class(select_by_tag_op)
     bpy.utils.unregister_class(editbone_adjust_op)
     bpy.utils.unregister_class(envelope_armature_settings_op)
     bpy.utils.unregister_class(GBonePanel)

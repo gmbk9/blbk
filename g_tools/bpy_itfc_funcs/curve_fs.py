@@ -241,3 +241,54 @@ def make_bevel_curve(split_bevel=True, curve_type="n", bevel_curve_type="p", use
     nc.data.bevel_object = nc2
 
     return (nc, nc2)
+    
+
+def simple_hair_curve(split_bevel = True,curve_type = "n",bevel_curve_type = "p",use_existing_bevel = False,bevel_obj_name = "Bevel_curve",use_cyclic_u = True,use_fill_caps = True):
+    objs = bpy.context.scene.objects
+    curve_type_dict = {"NURBS":"NURBS","POLY":"POLY","BEZIER":"BEZIER","n":"NURBS","p":"POLY","b":"BEZIER"}
+    nc = gtls.make_obj(type = "CURVE",name = "Basis_curve")
+    prop_dict = {"data.dimensions":"3D","data.use_uv_as_generated":True,"data.use_stretch":True,"data.use_deform_bounds":True}
+    nc.data.dimensions = "3D"
+    nc.data.use_uv_as_generated = True
+    nc.data.use_stretch = True
+    nc.data.use_deform_bounds = True
+    nc.data.use_fill_caps = use_fill_caps
+    nspl = nc.data.splines.new(type = curve_type_dict[curve_type])
+    nspl.use_endpoint_u = True
+    nc.location = bpy.context.scene.cursor_location
+    set_ac(nc)
+    nc.select = True
+    nspl.points.add(4)
+    for x in range(5):
+        nspl.points[x].co = (x,0,0,1)
+    nspl.order_u = 5
+    
+    if use_existing_bevel:
+        nc2 = objs[bevel_obj_name]
+    else:
+        nc2 = gtls.make_obj(type = "CURVE",name = "Bevel_curve")
+    nc2.data.dimensions = "3D"
+    nc2.data.use_uv_as_generated = True
+    nc2.data.use_stretch = True
+    nc2.data.use_deform_bounds = True
+    nspl2 = nc2.data.splines.new(type = curve_type_dict[bevel_curve_type])
+    nspl2.use_endpoint_u = True
+    if split_bevel:
+        nspl2.points.add(1)
+        nspl3 = nc2.data.splines.new(type = "POLY")
+        nspl3.use_endpoint_u = True
+        nspl3.points.add(1)
+        for x in range(2):
+            nspl2.points[x].co = (x,-x,0,1)
+        for x in range(2):
+            nspl3.points[x].co = (-x,-x,0,1)
+    else:
+        nspl2.points.add(2)
+        for x in range(3):
+            nspl2.points[x].co = (x-1,-abs(1-x),0,1)
+    nc.data.bevel_object = nc2
+    
+    for s in nc2.data.splines:
+        s.use_cyclic_u = use_cyclic_u
+    
+    return(nc,nc2)

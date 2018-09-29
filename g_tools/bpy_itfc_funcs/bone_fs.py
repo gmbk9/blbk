@@ -9,20 +9,76 @@ from mathutils import Vector,Euler,Quaternion,Matrix
 INIT_BONE_PROPS = {"head":Vector((0,0,0)),"tail":Vector((0,1,0)),"roll":0}
 
 
-#########################################################bone selection
+#########################################################ボーン選択・フィルタリング/bone selection and filtering
+@defac
+def get_active_bone(obj = None):
+    return obj.data.bones.active
+    
+@defac
+def get_pactbone(obj = None):
+    return obj.pose.bones[get_active_bone(obj = obj).name]
+    
 @defac
 def get_sel_bones(obj = None):
     bones = obj.data.bones
-    posebones = obj.pose.bones
-    editbones = obj.data.edit_bones
-    selbones = []
-    for bone in bones:
-        if bone.select == True:
-            selbones.append(bone)
-    return selbones
+    return tuple(b for b in bones if b.select)
 
+@defac
+def get_sel_bone(obj = None):
+    bones  = obj.data.bones
+    actbone = bones.active
+    return tuple(b for b in get_sel_bones(obj = obj) if b.name != get_active_bone(obj = obj).name)
 
+@defac
+def filter_bones_by_tag(bnlist,target_parent = 3,tag = r"親",is_indexed = True,count_relevant = 0,obj = None):
+    targets = []
+    if is_indexed:
+        rgxer = r"(" + tag + r"\d+)"
+    else:
+        rgxer = "(" + tag + ")"
+    for i in range(len(bnlist)):
+        b = bnlist[i]
+        if not (len(b.name) > 2):
+            continue
+        if re.search(rgxer,b.name[(len(tag)+int(is_indexed))+count_relevant::]):
+            targets.append(b)
+    return targets
 
+@defac
+def gather_by_tag(target_parent = -1,tag = r"親",is_indexed = True,count_relevant = 0,obj = None):
+    """
+    ボーン名の最後に付いてるタグによってボーンを選択する
+    """
+    targets = []
+    bones = obj.data.bones
+    bnlist = tuple(b.name for b in bones)
+    if is_indexed:
+        rgxer = r"(" + tag + r"\d+)"
+    else:
+        rgxer = "(" + tag + ")"
+    for i in range(len(bnlist)):
+        bname = bnlist[i]
+        if not (len(bname) > 2):
+            continue
+        index_in_name = -(len(tag)+int(is_indexed)+count_relevant)
+        if re.search(rgxer,bname[index_in_name::]):
+            targets.append(bname)
+    return targets
+    
+@defac
+def select_by_tag(target_parent = -1,tag = r"親",is_indexed = True,count_relevant = 0,obj = None):
+    locs = dict(locals())
+    targets = gather_by_tag(**locs)
+
+    print(targets)
+
+    bones = obj.data.bones
+    for b in targets:
+        bones[b].select = True
+        
+    return targets
+    
+#########################################################ボーンの作成など/bone making
 def init_new_bone(ebones):
     newbone = ebones.new(name = "temp")
     newbone.head = Vector((0,0,0))
@@ -76,7 +132,8 @@ def make_root(obj = None,name = "全ての親"):
     root = make_bone(name = name)
     set_root(obj = obj,bname = root.name)
     return root
-
+    
+#########################################################ボーンのプロパティー変更/bone property changing
 @defac
 def set_minimum_envelopes(obj = None):
     ac = set_ac(obj)

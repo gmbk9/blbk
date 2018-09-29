@@ -38,6 +38,13 @@ def get_kwargc(f):
 def is_running(g):
     return g.gi_running
     
+#########################################################state(´･ω･`)
+def save_states(coll,propname):
+    return tuple(getattr(i,propname) for i in coll)
+
+def restore_states(coll,states,propname):
+    return tmap(lambda x: setattr(coll[x],propname,states[x]), range(len(sstates)) )
+    
 #########################################################functional(?)
 
 def assoc(item, lst, key = None,test = None):

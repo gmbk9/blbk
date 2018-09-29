@@ -6,6 +6,64 @@ from g_tools.gtls import defac,get_ac,set_ac,set_mode,moderate,get_sel_obj,get_s
 from .. import gtls
 
 #########################################################デコレーター/decorators
+def basis_ensure(f):
+    def basis_ensured(*args,obj = None,**kwargs):
+        if obj.data.shape_keys == None:
+            bss = obj.shape_key_add("Basis")
+        res = f(*args,obj = obj,**kwargs)
+        return res
+    return basis_ensured
+    
+def check_keys(f):
+    def checked(*args,obj = None,**kwargs):
+        sks = obj.data.shape_keys
+        if sks == None:
+            bss = obj.shape_key_add(name = "Basis")
+        return f(*args,obj = obj,**kwargs)
+    return checked   
+
+def sk_context(f):
+    @basis_ensure
+    def sk_contexted(*args,obj = None,keys = None,**kwargs):
+        if obj == None:
+            obj = get_ac()
+        if keys == None:
+            keys = obj.data.shape_keys.key_blocks
+        res = f(*args,obj = obj,keys = keys,**kwargs)
+        return res
+    return sk_contexted
+    
+def bm_veferate(f):
+    @defac
+    def bm_vefed(bm,*args,verts = None,edges = None,faces = None,**kwargs):
+        if verts == None:
+            verts = bm.verts
+        if edges == None:
+            edges = bm.edges
+        if faces == None:
+            faces = bm.faces
+        return f(bm,*args,verts = verts,edges = edges,faces = faces,**kwargs)
+    return bm_vefed
+
+@defac
+def get_bm_data(coll,prop,obj = None,bm = None):
+    if bm == None:
+        bm = get_bmesh(obj = obj)
+    res = filter(lambda i: getattr(i,prop),getattr(bm,coll))
+    if bm == None:
+        bm.free()
+    return res
+    
+def state_preserve(coll,props):
+    def state_preserver(f):
+        def state_preserved(*args,**kwargs):
+            __saved_states = map(lambda prop: save_states(coll,prop),props)
+            res = f(*args,**kwargs)
+            restore_states(coll,props,__saved_states )
+            return res
+        return state_preserved
+    return state_preserver
+    
 def bm_install(f):
     def bm_installerated(obj = None,bm = None,*args,**kwargs):
         do_clean = False
@@ -17,6 +75,17 @@ def bm_install(f):
             bm.free()
         return res
     return bm_installerated
+
+def mesherate(f):
+    def mesherated(*args,obj = None,**kwargs):
+        if obj == None:
+            obj = bpy.context.scene.objects.active
+        m = obj.to_mesh(scene = default_scene,settings = "PREVIEW",apply_modifiers = True)
+        res = f(obj = (obj,m),*args,**kwargs)
+        bpy.data.meshes.remove(m)
+        return res
+    return mesherated
+    
 
 #########################################################選択関連/selection
 @defac
@@ -74,6 +143,46 @@ def deselect_mesh_parts(obj = None):
             i.select = False
     return original_states
 
+@defac
+@moderate("OBJECT")
+def selectorate(obj = None,selection_mode = "cross_loops",index_count = None,index_offset = None,index_step = None,index_part_type = 'v',check_dict = None,lattice_step_direction = 'u',lattice_limit = False,lattice_reverse = False,oper = None):
+    lattice_dict = {"x":"u","y":"v","z":"w"}
+    lattice_dict.update(revdict(lattice_dict))
+    try:
+        compatible_type = check_dict[selection_mode]
+        if obj.type == compatible_type:
+            pass
+        else:
+            errstr = "Incompatible selection mode and object type"
+            if oper != None:
+                oper.report({"INFO"},errstr)
+            print(errstr)
+            return
+    except Exception as e:
+    #except:
+        print(str(e))
+        pass 
+    if selection_mode == "cross_loops":
+        edge_fs.select_cross_loops(obj = obj,index_step = index_step)
+    if selection_mode == "chain_loop":
+        edge_fs.chain_loop_select(obj = obj)
+    if selection_mode == "3d_cursor":
+        pass
+    if selection_mode == "lattice_loop":
+        lattice_dir_select(lattice_dict[lattice_step_direction],sel_count = index_count,lattice_limit = lattice_limit,lattice_reverse = lattice_reverse,obj = obj,)
+    if selection_mode == "dot":
+        edge_fs.axis_dot_select(obj = obj)
+    if selection_mode == "vector":
+        edge_fs.select_cross_loops(obj = obj,index_step = index_step)
+    if selection_mode == "index":
+        idx_select(index_count, offset = index_offset, step = index_step, part_type = index_part_type,obj = obj,)
+       
+@defac
+@moderate("OBJECT")
+def set_lattice_resolution(reso,obj = None):
+    obj.data.points_u,obj.data.points_v,obj.data.points_w = reso
+    return (reso,obj)    
+    
 #########################################################bmesh関連/bmesh related
 def get_bmesh(obj = None):
     mesh = obj.data
@@ -215,8 +324,44 @@ def bm_filter(obj=None, bm=None, prop="is_manifold"):
 def get_nmf_verts(obj=None, bm=None):
     return bm_filter(obj=obj, bm=bm, prop="is_manifold")
 
+@defac
+@moderate("OBJECT")
+@bm_install
+def bool_cut_select(obj = None,bm = None):
+    nmf = get_nmf_verts()
+    
+    print(nmf)
+    mesh = obj.data
+    verts = mesh.vertices
+    
+    bmverts = list(bm.verts)
+    
+    for i in nmf:
+        v = bmverts[i]
+        if len(v.link_edges) < 3:
+            v.select = True
+    
+    bm.to_mesh(obj.data)
+    bm.free()
+        
 
 #########################################################シェープキー（つまりモーフ）関連/shape key related
+
+@defac
+@sk_context
+def basis_swap(obj = None,keys = None,oper = None):
+    return basis_swap_isolate(obj = obj,keys = keys)
+        
+
+def basis_swap_isolate(obj = None,keys = None):
+    bss = keys[0].data
+    askindex = obj.active_shape_key_index
+    ask = keys[askindex].data
+    for v1,v2 in zip(bss,ask):
+        v1.co = v2.co
+    for i in range(1,len(keys)):
+        obj.shape_key_remove(keys[1])
+        
 @defac
 def determine_vertex_data_source(obj = None,target_shape_key_index = 0, use_active_shape_key = False):
     mesh = obj.data
@@ -694,3 +839,21 @@ def first_weld(obj=None, bm=None):
         verts[parts[p - 1][1]].co = verts[parts[p][0]].co
 
     return bm
+
+
+def get_model_weights_dict(m1):
+    vg1 = m1.vertex_groups
+    v1 = objs["1"].data.vertices
+    vdicts1 = [{} for v in v1]
+    for v in range(len(v1)):
+        vert1 = v1[v]
+        grps = vert1.groups
+        for g in range(len(grps)):
+            g1 = vert1.groups[g]
+            gr1 = g1.group
+            w1 = g1.weight
+            vdicts1[v].update({gr1:w1})
+    
+    return vdicts1
+
+    

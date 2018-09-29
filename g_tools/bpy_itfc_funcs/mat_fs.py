@@ -187,6 +187,16 @@ shader_node_iolen_dict = {
 "ShaderNodeWireframe":(1,1),
 }
 
+
+#########################################################decorators
+def mat_ctx(f):
+    def mat_ctxed(*args,obj = None,actmat = None,actnode = None,actnt = None,**kwargs):
+        if obj == None:
+            obj = gtls.get_active_obj()
+        if actmat == None:
+            actmat = get_active_mat(obj = obj)
+        f(*args,obj = obj,actmat = actmat,actnode = actnode,actnt = actnt,**kwargs)
+
 #########################################################マテリアルテクスチャーやテクスチャースロット関連
 @defac
 def get_mat_texs(obj = None):
@@ -230,9 +240,33 @@ def simple_node_search(nodes, type="ShaderNodeValToRGB"):
     return filter(lambda n: n.type == t, nodes)[0]
 
 
-#########################################################その他
+
+#########################################################node関連
+
 def reset_matnodes_global():
     dmats = bpy.data.materials
     for m in dmats:
         m.use_nodes = not m.use_nodes
         m.use_nodes = not m.use_nodes
+
+
+@defac
+def copy_propagate_named_nodes(nodename="", mat=None, actmat=False, obj=None, source_node=None, prop_direcs=None):
+    mats = obj.data.materials
+    matslots = obj.material_slots
+    actmat = get_active_mat(obj=obj)
+    if mat == None:
+        mat = actmat
+
+    nt = mat.node_tree
+    nodes = nt.nodes
+
+    if source_node == None:
+        source_node = get_active_mat(obj=obj).nt.nodes.active
+    if nodename == "":
+        nodename = source_node.name
+
+    for mat in mats:
+        copy_update_named_nodes(mat=mat, actmat=False, obj=obj, source_node=source_node, copy_props=prop_direcs)
+
+#########################################################その他
