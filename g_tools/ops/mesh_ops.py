@@ -231,8 +231,8 @@ class GMeshPanel(bpy.types.Panel):
         row = layout.row()
         row.operator("mesh.parts_to_vgroups")
         
-        row = layout.row()
-        row.operator("mesh.selectorator")
+        #row = layout.row()
+        #row.operator("mesh.selectorator")
         
 
 def register():
@@ -243,17 +243,17 @@ def register():
     bpy.utils.register_class(mirror_sel_op)
     bpy.utils.register_class(clean_vertex_groups_op)
     bpy.utils.register_class(parts_to_vgroups_op)
-    bpy.utils.register_class(selectorator_op)
+    #bpy.utils.register_class(selectorator_op)
     bpy.utils.register_class(GMeshPanel)
 
 def unregister():
     #unregdef
+    bpy.utils.unregister_class(bool_cut_select_op)
     bpy.utils.unregister_class(basis_swap_op)
     bpy.utils.unregister_class(w_mirror_op)
     bpy.utils.unregister_class(mirror_sel_op)
     bpy.utils.register_class(clean_vertex_groups_op)
     bpy.utils.register_class(parts_to_vgroups_op)
-    bpy.utils.register_class(selectorator_op)
+    #bpy.utils.register_class(selectorator_op)
     bpy.utils.unregister_class(GMeshPanel)
-    bpy.utils.unregister_class(bool_cut_select_op)
     
