@@ -193,6 +193,74 @@ def curve_to_armature(obj = None,base_name = "Bone",make_new_arm = True,arm = No
 
     return arm
 
+
+def init_curve(cobj,curve_type = "n",scale = 1,point_count = 5):
+    typedict = {'b':"BEZIER",'n':"NURBS",'p':"POLY"}
+    curvetype = typedict[curve_type]
+    c = cobj.data
+    c.dimensions = "3D"
+    ns = c.splines.new(type = curvetype)
+    ns.use_endpoint_u = True
+    
+    vec = None
+    if curvetype == "POLY":
+        vec = Vector((0,0,0))
+    elif curvetype == "NURBS":
+        vec = Vector((0,0,0,1))
+        
+    ns.points[0].co = vec.copy()
+    for x in range(1,point_count):
+        ns.points.add(1)
+        vec[0] = x*scale
+        ns.points[-1].co = vec.copy()
+    del vec
+    
+def make_minimum_curve():
+    new_curve = make_init_curve()
+    new_curve.data.resolution_u = 1
+    new_curve.data.splines[0].order_u = 2
+    return new_curve
+    
+def init_curve_bez(c,point_count = 3):
+    c.dimensions = "3D"
+    ns = c.splines.new(type = "BEZIER")
+    ns.bezier_points[-1].handle_left = Vector((+0.3904115,0,0))
+    ns.bezier_points[-1].handle_right = Vector((-0.3904115,-0,0))
+    for x in range(1,point_count):
+        vec = Vector((-x,0,0))
+        ns.bezier_points.add(1)
+        np = ns.bezier_points[-1]
+        np.co = vec
+        np.handle_left = Vector((-x+0.3904115,0,0))
+        np.handle_right = Vector((-x-0.3904115,-0,0))
+    
+def make_init_curve(type = "n",name = "init_curve"):
+    nc = make_curve()
+    if type == "b":
+        init_curve_bez(nc)
+    else:
+        init_curve(nc)
+    nc.name = name
+    return nc
+    
+def make_init_bev(type = "n",name = "init_curve",point_count = 3):
+    type = type.lower()
+    nc = make_curve()
+    if type == "b":
+        init_curve_bez(nc,point_count = point_count)
+    else:
+        init_curve(nc,point_count = point_count)
+    verts = nc.data.splines[0].points
+    #mid_idx = int(point_count/2)
+    #cos = tuple(x-mid_idx for x in rlen(verts))
+    pc = point_count - 1
+    pcts = tuple(x/pc for x in rlen(verts))
+    cos = tuple(lerp(-.5,.5,x) for x in pcts)
+    passmap(lambda vidx: setattrate(verts[vidx],co = (cos[vidx],0,0,1)),rlen(verts))
+    nc.name = name
+    return nc
+    
+    
 def make_bevel_curve(split_bevel=True, curve_type="n", bevel_curve_type="p", use_existing_bevel=False,
                 bevel_obj_name="Bevel_curve"):
     objs = bpy.context.scene.objects
@@ -243,7 +311,7 @@ def make_bevel_curve(split_bevel=True, curve_type="n", bevel_curve_type="p", use
     return (nc, nc2)
     
 
-def simple_hair_curve(split_bevel = True,curve_type = "n",bevel_curve_type = "p",use_existing_bevel = False,bevel_obj_name = "Bevel_curve",use_cyclic_u = True,use_fill_caps = True):
+def simple_hair_curve(split_bevel = True,curve_type = "n",bevel_curve_type = "p",use_existing_bevel = False,bevel_obj_name = "Bevel_curve",use_cyclic_u = True,use_fill_caps = True,zero_last_radius = True):
     objs = bpy.context.scene.objects
     curve_type_dict = {"NURBS":"NURBS","POLY":"POLY","BEZIER":"BEZIER","n":"NURBS","p":"POLY","b":"BEZIER"}
     nc = gtls.make_obj(type = "CURVE",name = "Basis_curve")
@@ -287,6 +355,10 @@ def simple_hair_curve(split_bevel = True,curve_type = "n",bevel_curve_type = "p"
         for x in range(3):
             nspl2.points[x].co = (x-1,-abs(1-x),0,1)
     nc.data.bevel_object = nc2
+    
+    if zero_last_radius:
+        for s in nc.data.splines:
+            s.points[-1].radius = 0
     
     for s in nc2.data.splines:
         s.use_cyclic_u = use_cyclic_u
